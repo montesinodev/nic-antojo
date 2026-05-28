@@ -1,15 +1,69 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import { useColorScheme } from 'react-native';
+import { Stack, useRouter, useSegments } from "expo-router";
+import { useEffect } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import "../../global.css";
+import { AuthProvider, useAuth } from "../providers/AuthProvider";
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+function RootNavigation() {
+  const { user, isLoading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  useEffect(() => {
+    if (isLoading) return; // Espera a que Supabase responda
+
+    // 1. UPDATE: Check if the user is anywhere inside the (auth) group
+    const inAuthGroup = segments[0] === "(auth)";
+
+    if (!user && !inAuthGroup) {
+      // Si NO hay usuario y NO está en la zona de auth, envíalo a login
+      router.replace("/login");
+    } else if (user && inAuthGroup) {
+      // Si HAY usuario y está atrapado en login/register, envíalo al inicio
+      router.replace("/");
+    }
+  }, [user, isLoading, segments]);
+
+  if (isLoading) {
+    return (
+      <View style={styles.splashContainer}>
+        <Text style={styles.logoText}>NicAntojo</Text>
+      </View>
+    );
+  }
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <Stack>
+      {/* 2. UPDATE: Register the (auth) group instead of the individual login screen */}
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="restaurant/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="cart" options={{ title: "Carrito" }} />
+      <Stack.Screen name="profile" options={{ title: "Mi Perfil" }} />
+    </Stack>
   );
 }
+
+export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <RootNavigation />
+    </AuthProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  splashContainer: {
+    flex: 1,
+    backgroundColor: "#b91c1c",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  logoText: {
+    fontSize: 42,
+    fontWeight: "bold",
+    color: "#ffffff",
+    letterSpacing: 1,
+  },
+});

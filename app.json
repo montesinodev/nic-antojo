@@ -1,23 +1,40 @@
 {
   "expo": {
-    "name": "nic-antojo",
-    "slug": "nic-antojo",
+    "name": "NicAntojo",
+    "slug": "nicantojo",
+    "scheme": "nicantojo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "nicantojo",
     "userInterfaceStyle": "automatic",
+    "router": {
+      "origin": "src/app"
+    },
     "ios": {
+      "bundleIdentifier": "com.nicantojo.app",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.nicantojo.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#E63946",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "nicantojo"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "output": "static",
@@ -28,13 +45,14 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#E63946",
           "android": {
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
