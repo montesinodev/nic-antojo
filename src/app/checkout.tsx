@@ -24,7 +24,7 @@ export default function CheckoutScreen() {
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Calculamos subtotal y total con envío
+  // Cálculos de precios
   const cartSubtotal = items.reduce(
     (sum: number, item: any) => sum + item.price_cordobas * item.quantity,
     0,
@@ -33,16 +33,26 @@ export default function CheckoutScreen() {
   const finalTotal = cartSubtotal + deliveryFee;
 
   const placeOrder = async () => {
-    console.log("🔵 1. Botón presionado. Iniciando validación...");
+    // 1. Verificación de sesión: Si no hay usuario, enviar al login
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      Alert.alert(
+        "Acceso necesario",
+        "Debes iniciar sesión para finalizar tu pedido.",
+      );
+      router.push("/(auth)/login");
+      return;
+    }
 
     if (!address.trim()) {
-      console.log("🔴 Error: Dirección vacía");
       Alert.alert("Faltan datos", "Por favor ingresa tu dirección de entrega.");
       return;
     }
 
     if (items.length === 0) {
-      console.log("🔴 Error: Carrito vacío");
       Alert.alert("Carrito vacío", "No tienes productos en tu carrito.");
       return;
     }
@@ -51,16 +61,8 @@ export default function CheckoutScreen() {
 
     try {
       const restaurantId = items[0].restaurant_id;
-      console.log("🔵 2. ID del Restaurante capturado:", restaurantId);
 
-      // Si el ID es indefinido, el insert fallará
-      if (!restaurantId) {
-        throw new Error(
-          "El producto no tiene un restaurant_id válido asignado.",
-        );
-      }
-
-      console.log("🔵 3. Insertando en la tabla 'orders'...");
+      // 2. Insertar orden en la tabla 'orders'
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .insert([
@@ -68,19 +70,17 @@ export default function CheckoutScreen() {
             delivery_address: address,
             total: finalTotal,
             restaurant_id: restaurantId,
+            customer_id: user.id, // ID del usuario autenticado
+            lat: 12.1328, // Valores temporales hasta implementar mapa
+            lng: -86.2504,
           },
         ])
         .select()
         .single();
 
-      if (orderError) {
-        console.log("🔴 Error al insertar orden:", orderError);
-        throw orderError;
-      }
+      if (orderError) throw orderError;
 
-      console.log("🟢 4. Orden creada con éxito. ID:", orderData?.id);
-      console.log("🔵 5. Preparando items para 'order_items'...");
-
+      // 3. Insertar items en 'order_items'
       const orderItemsToInsert = items.map((item: any) => ({
         order_id: orderData.id,
         menu_item_id: item.id,
@@ -88,41 +88,29 @@ export default function CheckoutScreen() {
         unit_price: item.price_cordobas,
       }));
 
-      console.log("🔵 6. Insertando items:", orderItemsToInsert);
-
       const { error: itemsError } = await supabase
         .from("order_items")
         .insert(orderItemsToInsert);
 
-      if (itemsError) {
-        console.log("🔴 Error al insertar items:", itemsError);
-        throw itemsError;
-      }
+      if (itemsError) throw itemsError;
 
-      console.log("🟢 7. Proceso completo. Limpiando carrito y redirigiendo.");
-
-      Alert.alert(
-        "¡Pedido Confirmado!",
-        "Tu comida ya se está preparando. El motorizado saldrá pronto.",
-        [
-          {
-            text: "Excelente",
-            onPress: () => {
-              clearCart();
-              router.replace("/");
-            },
+      Alert.alert("¡Pedido Confirmado!", "Tu comida ya se está preparando.", [
+        {
+          text: "Excelente",
+          onPress: () => {
+            clearCart();
+            router.replace("/");
           },
-        ],
-      );
+        },
+      ]);
     } catch (error: any) {
-      console.log("🔥 ERROR CRÍTICO CAPTURADO:", error);
       Alert.alert(
         "Error",
-        "Hubo un problema al procesar tu orden. Revisa la terminal.",
+        "Hubo un problema al procesar tu orden: " + error.message,
       );
+      console.log("Supabase Error:", error);
     } finally {
       setLoading(false);
-      console.log("⚪ 8. Proceso finalizado (Loading apagado).");
     }
   };
 
@@ -144,7 +132,6 @@ export default function CheckoutScreen() {
           </Text>
         </View>
 
-        {/* Resumen Corto */}
         <View className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-6">
           <Text className="font-bold text-gray-800 text-lg mb-4">Resumen</Text>
           <View className="flex-row justify-between mb-2">
@@ -166,7 +153,6 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
-        {/* Dirección de Envío */}
         <Text className="font-bold text-gray-800 text-lg mb-3 ml-1">
           Dirección de Entrega
         </Text>
@@ -182,7 +168,6 @@ export default function CheckoutScreen() {
           />
         </View>
 
-        {/* Método de Pago */}
         <Text className="font-bold text-gray-800 text-lg mb-3 ml-1">
           Método de Pago
         </Text>
@@ -194,7 +179,6 @@ export default function CheckoutScreen() {
         </View>
       </ScrollView>
 
-      {/* Botón de Enviar Pedido */}
       <View
         className="bg-white w-full px-6 pt-4 border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]"
         style={{ paddingBottom: insets.bottom > 0 ? insets.bottom + 16 : 24 }}

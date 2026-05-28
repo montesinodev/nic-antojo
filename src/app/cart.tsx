@@ -110,7 +110,10 @@ export default function CartScreen() {
           <Text className="text-3xl font-black text-gray-800">C$ {total}</Text>
         </View>
 
-        <TouchableOpacity className="bg-[#E63946] p-4 rounded-2xl items-center shadow-md">
+        <TouchableOpacity
+          onPress={() => router.push("/checkout")}
+          className="bg-[#E63946] p-4 rounded-2xl items-center shadow-md"
+        >
           <Text className="text-white font-bold text-lg">Confirmar Orden</Text>
         </TouchableOpacity>
       </View>
