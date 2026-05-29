@@ -2,16 +2,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import MapView from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 import { useCartStore } from "../store/useCartStore";
@@ -24,6 +25,12 @@ export default function CheckoutScreen() {
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Estado para capturar las coordenadas exactas del mapa
+  const [selectedLocation, setSelectedLocation] = useState({
+    latitude: 12.1328, // Centro de Managua por defecto
+    longitude: -86.2504,
+  });
+
   // Cálculos de precios
   const cartSubtotal = items.reduce(
     (sum: number, item: any) => sum + item.price_cordobas * item.quantity,
@@ -33,7 +40,6 @@ export default function CheckoutScreen() {
   const finalTotal = cartSubtotal + deliveryFee;
 
   const placeOrder = async () => {
-    // 1. Verificación de sesión: Si no hay usuario, enviar al login
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -48,7 +54,10 @@ export default function CheckoutScreen() {
     }
 
     if (!address.trim()) {
-      Alert.alert("Faltan datos", "Por favor ingresa tu dirección de entrega.");
+      Alert.alert(
+        "Faltan datos",
+        "Por favor escribe las referencias de tu dirección.",
+      );
       return;
     }
 
@@ -62,7 +71,7 @@ export default function CheckoutScreen() {
     try {
       const restaurantId = items[0].restaurant_id;
 
-      // 2. Insertar orden en la tabla 'orders'
+      // Insertar orden con las coordenadas reales capturadas del mapa
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .insert([
@@ -70,9 +79,9 @@ export default function CheckoutScreen() {
             delivery_address: address,
             total: finalTotal,
             restaurant_id: restaurantId,
-            customer_id: user.id, // ID del usuario autenticado
-            lat: 12.1328, // Valores temporales hasta implementar mapa
-            lng: -86.2504,
+            customer_id: user.id,
+            lat: selectedLocation.latitude,
+            lng: selectedLocation.longitude,
           },
         ])
         .select()
@@ -80,7 +89,6 @@ export default function CheckoutScreen() {
 
       if (orderError) throw orderError;
 
-      // 3. Insertar items en 'order_items'
       const orderItemsToInsert = items.map((item: any) => ({
         order_id: orderData.id,
         menu_item_id: item.id,
@@ -123,21 +131,76 @@ export default function CheckoutScreen() {
         className="flex-1 bg-[#FFFBF5]"
         contentContainerStyle={{ padding: 20 }}
       >
-        <View className="mt-4 mb-8">
+        <View className="mt-4 mb-6">
           <Text className="text-3xl font-black text-gray-800">
             Finalizar Pedido
           </Text>
           <Text className="text-gray-500 text-base mt-2">
-            Casi listo para disfrutar de tus antojos.
+            Confirma tu ubicación de entrega.
           </Text>
         </View>
 
-        <View className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-6">
-          <Text className="font-bold text-gray-800 text-lg mb-4">Resumen</Text>
-          <View className="flex-row justify-between mb-2">
-            <Text className="text-gray-500">
-              Subtotal ({items.length} productos)
+        {/* --- SECCIÓN DEL MAPA --- */}
+        <Text className="font-bold text-gray-800 text-lg mb-3 ml-1">
+          Ubicación exacta
+        </Text>
+        <View className="bg-white rounded-3xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
+          <View className="h-48 w-full relative">
+            <MapView
+              style={{ flex: 1 }}
+              initialRegion={{
+                latitude: 12.1328,
+                longitude: -86.2504,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
+              }}
+              onRegionChangeComplete={(region) => {
+                // Cada vez que el mapa se detiene, actualizamos las coordenadas
+                setSelectedLocation({
+                  latitude: region.latitude,
+                  longitude: region.longitude,
+                });
+              }}
+            />
+            {/* El pin falso que se queda siempre en el centro */}
+            <View className="absolute top-1/2 left-1/2 -mt-8 -ml-4 pointer-events-none items-center shadow-lg">
+              <View className="bg-red-700 w-8 h-8 rounded-full items-center justify-center">
+                <Ionicons name="restaurant" size={16} color="white" />
+              </View>
+              <View className="w-1 h-3 bg-red-900" />
+              <View className="w-2 h-1 bg-black/30 rounded-full mt-1" />
+            </View>
+          </View>
+          <View className="p-4 bg-red-50">
+            <Text className="text-red-800 text-xs text-center font-medium">
+              Mueve el mapa para ubicar el pin exactamente en tu casa o trabajo.
             </Text>
+          </View>
+        </View>
+
+        {/* --- SECCIÓN DE DIRECCIÓN TEXTUAL --- */}
+        <Text className="font-bold text-gray-800 text-lg mb-3 ml-1">
+          Referencias de la dirección
+        </Text>
+        <View className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
+          <TextInput
+            className="text-gray-800 text-base"
+            placeholder="Ej. Casa esquinera color verde, portón negro..."
+            multiline
+            numberOfLines={3}
+            value={address}
+            onChangeText={setAddress}
+            style={{ textAlignVertical: "top" }}
+          />
+        </View>
+
+        {/* --- RESUMEN DE PAGO --- */}
+        <Text className="font-bold text-gray-800 text-lg mb-3 ml-1">
+          Resumen
+        </Text>
+        <View className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-8">
+          <View className="flex-row justify-between mb-2">
+            <Text className="text-gray-500">Subtotal</Text>
             <Text className="font-bold text-gray-800">C$ {cartSubtotal}</Text>
           </View>
           <View className="flex-row justify-between mb-4">
@@ -152,33 +215,9 @@ export default function CheckoutScreen() {
             </Text>
           </View>
         </View>
-
-        <Text className="font-bold text-gray-800 text-lg mb-3 ml-1">
-          Dirección de Entrega
-        </Text>
-        <View className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
-          <TextInput
-            className="text-gray-800 text-base"
-            placeholder="Ej. Colonia Centroamérica, Casa 123, Managua..."
-            multiline
-            numberOfLines={3}
-            value={address}
-            onChangeText={setAddress}
-            style={{ textAlignVertical: "top" }}
-          />
-        </View>
-
-        <Text className="font-bold text-gray-800 text-lg mb-3 ml-1">
-          Método de Pago
-        </Text>
-        <View className="bg-white rounded-2xl shadow-sm border border-red-200 p-4 mb-8 flex-row items-center bg-red-50">
-          <Ionicons name="cash-outline" size={24} color="#E63946" />
-          <Text className="font-bold text-gray-800 ml-3">
-            Efectivo al recibir
-          </Text>
-        </View>
       </ScrollView>
 
+      {/* --- BOTÓN FLOTANTE --- */}
       <View
         className="bg-white w-full px-6 pt-4 border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]"
         style={{ paddingBottom: insets.bottom > 0 ? insets.bottom + 16 : 24 }}

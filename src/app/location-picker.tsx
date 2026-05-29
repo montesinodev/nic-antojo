@@ -3,16 +3,16 @@ import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import MapView, { Marker } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocationStore } from "../../store/useLocationStore";
+import { useLocationStore } from "../store/useLocationStore";
 
 export default function LocationPickerScreen() {
   const router = useRouter();
@@ -31,7 +31,6 @@ export default function LocationPickerScreen() {
     getUserLocation();
   }, []);
 
-  // 1. Obtener ubicación por GPS
   const getUserLocation = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== "granted") {
@@ -47,34 +46,36 @@ export default function LocationPickerScreen() {
     setRegion({
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
-      latitudeDelta: 0.01, // Zoom más cercano
+      latitudeDelta: 0.01,
       longitudeDelta: 0.01,
     });
     setLoadingMap(false);
   };
 
   const confirmLocation = () => {
-    // Aquí guardaríamos el nombre de la calle, pero por ahora pondremos un genérico
-    // hasta que activemos la API de Google para "Traducir" coordenadas a texto
     setLocation("Ubicación Seleccionada", {
       latitude: region.latitude,
       longitude: region.longitude,
     });
-    router.back();
+    // Navegación absoluta segura: siempre te enviará al inicio de las pestañas
+    router.replace("/");
   };
 
   return (
     <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
-      {/* HEADER Y BUSCADOR */}
-      <View className="px-4 pb-2 z-50">
+      {/* HEADER Y BUSCADOR (zIndex 999 para Android) */}
+      <View className="px-4 pb-2 bg-white" style={{ zIndex: 999 }}>
         <View className="flex-row items-center mb-4 mt-2">
-          <TouchableOpacity onPress={() => router.back()} className="mr-3">
+          {/* BOTÓN DE CIERRE CON NAVEGACIÓN ABSOLUTA */}
+          <TouchableOpacity
+            onPress={() => router.replace("/")}
+            className="mr-3"
+          >
             <Ionicons name="close" size={28} color="black" />
           </TouchableOpacity>
           <Text className="text-xl font-bold">Selecciona tu ubicación</Text>
         </View>
 
-        {/* Buscador de Google Places */}
         <GooglePlacesAutocomplete
           placeholder="Buscar calle, residencial, lugar..."
           fetchDetails={true}
@@ -89,10 +90,11 @@ export default function LocationPickerScreen() {
             }
           }}
           query={{
-            key: "TU_GOOGLE_API_KEY_AQUI", // <--- Necesitamos esta llave
+            key: process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY,
             language: "es",
-            components: "country:ni", // Filtrar solo Nicaragua
+            components: "country:ni", // Solo Nicaragua
           }}
+          onFail={(error) => console.log("Error de Google Places: ", error)}
           styles={{
             textInput: {
               height: 50,
@@ -107,14 +109,14 @@ export default function LocationPickerScreen() {
               backgroundColor: "white",
               borderRadius: 12,
               elevation: 5,
-              zIndex: 100,
+              zIndex: 1000,
             },
           }}
         />
       </View>
 
-      {/* MAPA */}
-      <View className="flex-1 relative -z-10">
+      {/* MAPA (Sin z-index negativo) */}
+      <View className="flex-1 bg-gray-200">
         {loadingMap ? (
           <View className="flex-1 justify-center items-center">
             <ActivityIndicator size="large" color="#E63946" />
@@ -124,10 +126,9 @@ export default function LocationPickerScreen() {
           <MapView
             style={{ flex: 1 }}
             region={region}
-            showsUserLocation={true} // Muestra el puntito azul de GPS nativo
+            showsUserLocation={true}
             onRegionChangeComplete={(newRegion) => setRegion(newRegion)}
           >
-            {/* El pin que puedes arrastrar */}
             <Marker
               coordinate={{
                 latitude: region.latitude,
