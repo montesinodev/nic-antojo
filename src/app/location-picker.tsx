@@ -1,13 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  BackHandler,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import MapView, { Marker } from "react-native-maps";
@@ -21,11 +23,33 @@ export default function LocationPickerScreen() {
 
   const [loadingMap, setLoadingMap] = useState(true);
   const [region, setRegion] = useState({
-    latitude: 12.1328, // Managua por defecto
+    latitude: 12.1328,
     longitude: -86.2504,
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   });
+
+  const leavePicker = React.useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)");
+    }
+  }, [router]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        leavePicker();
+        return true;
+      };
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        onBackPress,
+      );
+      return () => subscription.remove();
+    }, [leavePicker]),
+  );
 
   useEffect(() => {
     getUserLocation();
@@ -36,7 +60,7 @@ export default function LocationPickerScreen() {
     if (status !== "granted") {
       Alert.alert(
         "Permiso denegado",
-        "No podemos acceder a tu ubicación. Puedes buscarla manualmente.",
+        "Puedes buscar tu ubicación manualmente.",
       );
       setLoadingMap(false);
       return;
@@ -57,25 +81,24 @@ export default function LocationPickerScreen() {
       latitude: region.latitude,
       longitude: region.longitude,
     });
-    // Navegación absoluta segura: siempre te enviará al inicio de las pestañas
-    router.replace("/");
+    leavePicker();
   };
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
-      {/* HEADER Y BUSCADOR (zIndex 999 para Android) */}
-      <View className="px-4 pb-2 bg-white" style={{ zIndex: 999 }}>
-        <View className="flex-row items-center mb-4 mt-2">
-          {/* BOTÓN DE CIERRE CON NAVEGACIÓN ABSOLUTA */}
-          <TouchableOpacity
-            onPress={() => router.replace("/")}
-            className="mr-3"
-          >
-            <Ionicons name="close" size={28} color="black" />
-          </TouchableOpacity>
-          <Text className="text-xl font-bold">Selecciona tu ubicación</Text>
-        </View>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* HEADER */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={leavePicker}
+          style={styles.closeButton}
+        >
+          <Ionicons name="close" size={28} color="black" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Selecciona tu ubicación</Text>
+      </View>
 
+      {/* BUSCADOR */}
+      <View style={styles.searchContainer}>
         <GooglePlacesAutocomplete
           placeholder="Buscar calle, residencial, lugar..."
           fetchDetails={true}
@@ -92,39 +115,26 @@ export default function LocationPickerScreen() {
           query={{
             key: process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY,
             language: "es",
-            components: "country:ni", // Solo Nicaragua
+            components: "country:ni",
           }}
-          onFail={(error) => console.log("Error de Google Places: ", error)}
           styles={{
-            textInput: {
-              height: 50,
-              borderRadius: 12,
-              backgroundColor: "#F3F4F6",
-              paddingHorizontal: 16,
-            },
+            textInput: styles.searchInput,
             container: { flex: 0 },
-            listView: {
-              position: "absolute",
-              top: 55,
-              backgroundColor: "white",
-              borderRadius: 12,
-              elevation: 5,
-              zIndex: 1000,
-            },
+            listView: styles.listView,
           }}
         />
       </View>
 
-      {/* MAPA (Sin z-index negativo) */}
-      <View className="flex-1 bg-gray-200">
+      {/* MAPA */}
+      <View style={styles.mapContainer}>
         {loadingMap ? (
-          <View className="flex-1 justify-center items-center">
+          <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#E63946" />
-            <Text className="mt-4 text-gray-500">Obteniendo tu GPS...</Text>
+            <Text style={styles.loadingText}>Obteniendo tu GPS...</Text>
           </View>
         ) : (
           <MapView
-            style={{ flex: 1 }}
+            style={StyleSheet.absoluteFillObject}
             region={region}
             showsUserLocation={true}
             onRegionChangeComplete={(newRegion) => setRegion(newRegion)}
@@ -140,16 +150,66 @@ export default function LocationPickerScreen() {
       </View>
 
       {/* BOTÓN INFERIOR */}
-      <View className="p-6 bg-white border-t border-gray-100 pb-10">
+      <View style={styles.footer}>
         <TouchableOpacity
+          style={styles.confirmButton}
           onPress={confirmLocation}
-          className="bg-[#E63946] p-4 rounded-2xl items-center shadow-md"
         >
-          <Text className="text-white font-bold text-lg">
-            Confirmar esta ubicación
-          </Text>
+          <Text style={styles.confirmButtonText}>Confirmar esta ubicación</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
+
+// Estilos nativos de React Native (Inmunes a fallos de Tailwind)
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "white" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    zIndex: 2,
+  },
+  closeButton: { marginRight: 12 },
+  headerTitle: { fontSize: 20, fontWeight: "bold", color: "#1F2937" },
+  searchContainer: { paddingHorizontal: 16, zIndex: 999, marginBottom: 10 },
+  searchInput: {
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 16,
+    fontSize: 16,
+  },
+  listView: {
+    position: "absolute",
+    top: 55,
+    left: 16,
+    right: 16,
+    backgroundColor: "white",
+    borderRadius: 12,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  mapContainer: { flex: 1, backgroundColor: "#E5E7EB", zIndex: 1 },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { marginTop: 16, color: "#6B7280" },
+  footer: {
+    padding: 24,
+    backgroundColor: "white",
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+  },
+  confirmButton: {
+    backgroundColor: "#E63946",
+    padding: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  confirmButtonText: { color: "white", fontWeight: "bold", fontSize: 18 },
+});

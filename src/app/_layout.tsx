@@ -4,6 +4,12 @@ import { StyleSheet, Text, View } from "react-native";
 import "../../global.css";
 import { AuthProvider, useAuth } from "../providers/AuthProvider";
 
+// ADD THIS EXPORT: It forces the app to default to the tabs layout
+// instead of getting stuck in a missing stack.
+export const unstable_settings = {
+  initialRouteName: "(tabs)",
+};
+
 function RootNavigation() {
   const { user, isLoading } = useAuth();
   const segments = useSegments();
@@ -34,13 +40,15 @@ function RootNavigation() {
 
   return (
     <Stack>
-      {/* 2. UPDATE: Register the (auth) group instead of the individual login screen */}
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="location-picker"
+        options={{ headerShown: false, presentation: "modal" }}
+      />
       <Stack.Screen name="restaurant/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="cart" options={{ title: "Carrito" }} />
-      <Stack.Screen name="profile" options={{ title: "Mi Perfil" }} />
+      <Stack.Screen name="checkout" options={{ headerShown: false }} />
     </Stack>
   );
 }

@@ -31,29 +31,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="search" // Crearás este archivo luego
-        options={{
-          title: "Buscar",
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="search" size={24} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="orders" // Crearás este archivo luego
+        name="orders"
         options={{
           title: "Pedidos",
           tabBarIcon: ({ color }) => (
             <Ionicons name="receipt" size={24} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile" // Crearás este archivo luego
-        options={{
-          title: "Perfil",
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="person" size={24} color={color} />
           ),
         }}
       />

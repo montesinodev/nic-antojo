@@ -1,154 +1,217 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
+  ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
-import MapView, { Marker } from "react-native-maps";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../providers/AuthProvider";
 import { useLocationStore } from "../../store/useLocationStore";
 
-export default function LocationPickerScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { setLocation } = useLocationStore();
+type Restaurant = {
+  id: string;
+  name: string;
+  address: string;
+  category: string;
+  logo_url: string;
+  is_open: boolean;
+};
 
-  const [loadingMap, setLoadingMap] = useState(true);
-  const [region, setRegion] = useState({
-    latitude: 12.1328, // Managua por defecto
-    longitude: -86.2504,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
-  });
+export default function HomeScreen() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const { address } = useLocationStore();
+  const firstName = user?.user_metadata?.full_name?.split(" ")[0] || "Usuario";
+
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getUserLocation();
+    fetchRestaurants();
   }, []);
 
-  // 1. Obtener ubicación por GPS
-  const getUserLocation = async () => {
-    let { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Permiso denegado",
-        "No podemos acceder a tu ubicación. Puedes buscarla manualmente.",
-      );
-      setLoadingMap(false);
-      return;
-    }
+  const fetchRestaurants = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("restaurants")
+        .select("*")
+        .eq("is_open", true);
 
-    let location = await Location.getCurrentPositionAsync({});
-    setRegion({
-      latitude: location.coords.latitude,
-      longitude: location.coords.longitude,
-      latitudeDelta: 0.01, // Zoom más cercano
-      longitudeDelta: 0.01,
-    });
-    setLoadingMap(false);
+      if (error) throw error;
+      setRestaurants(data || []);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Error desconocido";
+      Alert.alert("Error fetching restaurants", message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const confirmLocation = () => {
-    // Aquí guardaríamos el nombre de la calle, pero por ahora pondremos un genérico
-    // hasta que activemos la API de Google para "Traducir" coordenadas a texto
-    setLocation("Ubicación Seleccionada", {
-      latitude: region.latitude,
-      longitude: region.longitude,
-    });
-    router.back();
+  const handleSignOut = () => {
+    Alert.alert(
+      "Cerrar Sesión",
+      "¿Estás seguro que deseas salir de NicAntojo?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Salir",
+          style: "destructive",
+          onPress: async () => {
+            const { error } = await supabase.auth.signOut();
+            if (error) Alert.alert("Error", error.message);
+          },
+        },
+      ],
+    );
   };
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
-      {/* HEADER Y BUSCADOR */}
-      <View className="px-4 pb-2 z-50">
-        <View className="flex-row items-center mb-4 mt-2">
-          <TouchableOpacity onPress={() => router.back()} className="mr-3">
-            <Ionicons name="close" size={28} color="black" />
+    <SafeAreaView
+      className="flex-1 bg-[#FFFBF5]"
+      edges={["top", "left", "right"]}
+    >
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <View className="px-6 pt-6 pb-4 flex-row justify-between items-center">
+          <View>
+            <Text className="text-gray-500 text-sm font-medium mb-1">
+              Entregar a
+            </Text>
+            <TouchableOpacity
+              className="flex-row items-center"
+              onPress={() => router.push("/location-picker")}
+            >
+              <Text className="text-gray-800 font-bold text-lg mr-1">
+                {address}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color="#E63946" />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            onPress={handleSignOut}
+            className="w-12 h-12 bg-red-100 rounded-full items-center justify-center border-2 border-red-700"
+          >
+            <Text className="text-red-700 font-bold text-lg">
+              {firstName.charAt(0).toUpperCase()}
+            </Text>
           </TouchableOpacity>
-          <Text className="text-xl font-bold">Selecciona tu ubicación</Text>
         </View>
 
-        {/* Buscador de Google Places */}
-        <GooglePlacesAutocomplete
-          placeholder="Buscar calle, residencial, lugar..."
-          fetchDetails={true}
-          onPress={(data, details = null) => {
-            if (details) {
-              setRegion({
-                latitude: details.geometry.location.lat,
-                longitude: details.geometry.location.lng,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              });
-            }
-          }}
-          query={{
-            key: "TU_GOOGLE_API_KEY_AQUI", // <--- Necesitamos esta llave
-            language: "es",
-            components: "country:ni", // Filtrar solo Nicaragua
-          }}
-          styles={{
-            textInput: {
-              height: 50,
-              borderRadius: 12,
-              backgroundColor: "#F3F4F6",
-              paddingHorizontal: 16,
-            },
-            container: { flex: 0 },
-            listView: {
-              position: "absolute",
-              top: 55,
-              backgroundColor: "white",
-              borderRadius: 12,
-              elevation: 5,
-              zIndex: 100,
-            },
-          }}
-        />
-      </View>
-
-      {/* MAPA */}
-      <View className="flex-1 relative -z-10">
-        {loadingMap ? (
-          <View className="flex-1 justify-center items-center">
-            <ActivityIndicator size="large" color="#E63946" />
-            <Text className="mt-4 text-gray-500">Obteniendo tu GPS...</Text>
-          </View>
-        ) : (
-          <MapView
-            style={{ flex: 1 }}
-            region={region}
-            showsUserLocation={true} // Muestra el puntito azul de GPS nativo
-            onRegionChangeComplete={(newRegion) => setRegion(newRegion)}
-          >
-            {/* El pin que puedes arrastrar */}
-            <Marker
-              coordinate={{
-                latitude: region.latitude,
-                longitude: region.longitude,
-              }}
-            />
-          </MapView>
-        )}
-      </View>
-
-      {/* BOTÓN INFERIOR */}
-      <View className="p-6 bg-white border-t border-gray-100 pb-10">
-        <TouchableOpacity
-          onPress={confirmLocation}
-          className="bg-[#E63946] p-4 rounded-2xl items-center shadow-md"
-        >
-          <Text className="text-white font-bold text-lg">
-            Confirmar esta ubicación
+        <View className="px-6 mb-6">
+          <Text className="text-3xl font-extrabold text-gray-800">
+            Hola, {firstName} 👋
           </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+          <Text className="text-gray-500 text-lg mt-1">
+            ¿Qué se te antoja hoy?
+          </Text>
+        </View>
+
+        <View className="px-6 mb-8">
+          <View className="flex-row items-center bg-white h-14 rounded-2xl px-4 shadow-sm border border-gray-100">
+            <Ionicons name="search" size={24} color="#9CA3AF" />
+            <TextInput
+              placeholder="Buscar restaurantes, asados, fritanga..."
+              className="flex-1 ml-3 text-base text-gray-700 font-medium"
+              placeholderTextColor="#9CA3AF"
+            />
+          </View>
+        </View>
+
+        <View className="mb-8">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 24, gap: 16 }}
+          >
+            {["Fritanga", "Asados", "Pizza", "Postres", "Bebidas"].map(
+              (category, index) => (
+                <TouchableOpacity key={index} className="items-center">
+                  <View className="w-16 h-16 bg-white rounded-2xl items-center justify-center shadow-sm border border-gray-100 mb-2">
+                    <Text className="text-2xl">
+                      {index === 0
+                        ? "🌮"
+                        : index === 1
+                          ? "🥩"
+                          : index === 2
+                            ? "🍕"
+                            : index === 3
+                              ? "🍰"
+                              : "🥤"}
+                    </Text>
+                  </View>
+                  <Text className="text-gray-700 font-medium text-sm">
+                    {category}
+                  </Text>
+                </TouchableOpacity>
+              ),
+            )}
+          </ScrollView>
+        </View>
+
+        <View className="px-6 pb-12">
+          <Text className="text-xl font-bold text-gray-800 mb-4">
+            Recomendados para ti
+          </Text>
+
+          {loading ? (
+            <ActivityIndicator size="large" color="#E63946" className="mt-4" />
+          ) : restaurants.length === 0 ? (
+            <Text className="text-gray-500 text-center mt-4">
+              No hay restaurantes disponibles.
+            </Text>
+          ) : (
+            <View className="gap-y-4">
+              {restaurants.map((restaurant) => (
+                <TouchableOpacity
+                  key={restaurant.id}
+                  className="bg-white rounded-3xl p-3 flex-row items-center shadow-sm border border-gray-100"
+                  onPress={() => router.push(`/restaurant/${restaurant.id}`)}
+                >
+                  <Image
+                    source={{ uri: restaurant.logo_url }}
+                    className="w-20 h-20 rounded-2xl bg-gray-200"
+                    resizeMode="cover"
+                  />
+                  <View className="flex-1 ml-4">
+                    <Text className="text-lg font-bold text-gray-800 mb-1">
+                      {restaurant.name}
+                    </Text>
+                    <Text
+                      className="text-gray-500 text-sm mb-2"
+                      numberOfLines={1}
+                    >
+                      {restaurant.address}
+                    </Text>
+
+                    <View className="flex-row items-center">
+                      <View className="bg-red-100 px-2 py-1 rounded-md mr-2">
+                        <Text className="text-red-700 text-xs font-bold">
+                          {restaurant.category}
+                        </Text>
+                      </View>
+                      <View className="flex-row items-center">
+                        <Ionicons name="star" size={14} color="#FBBF24" />
+                        <Text className="text-gray-600 text-xs font-bold ml-1">
+                          4.5
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

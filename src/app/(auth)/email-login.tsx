@@ -45,7 +45,9 @@ export default function EmailLoginScreen() {
         {/* Back Button & Header */}
         <View className="absolute top-16 left-6 z-10">
           <TouchableOpacity 
-            onPress={() => router.back()}
+            onPress={() =>
+              router.canGoBack() ? router.back() : router.replace("/login")
+            }
             className="w-10 h-10 bg-white rounded-full items-center justify-center shadow-sm border border-gray-100"
           >
             <Ionicons name="arrow-back" size={24} color="#b91c1c" />

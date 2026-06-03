@@ -132,7 +132,12 @@ export default function RegisterScreen() {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.back()} className="py-2">
+        <TouchableOpacity
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace("/login")
+          }
+          className="py-2"
+        >
           <Text className="text-gray-500 font-bold text-center text-base">
             ¿Ya tienes cuenta? <Text className="text-red-700">Inicia sesión</Text>
           </Text>

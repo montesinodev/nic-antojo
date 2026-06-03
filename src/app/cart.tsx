@@ -29,7 +29,9 @@ export default function CartScreen() {
           ¡Agrega unos deliciosos platillos para empezar!
         </Text>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace("/(tabs)")
+          }
           className="bg-[#E63946] px-8 py-4 rounded-2xl shadow-sm"
         >
           <Text className="text-white font-bold text-lg">Volver al menú</Text>
