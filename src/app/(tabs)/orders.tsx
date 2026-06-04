@@ -56,9 +56,8 @@ export default function OrdersScreen() {
   useEffect(() => {
     fetchOrders();
 
-    // --- SUPABASE REALTIME MAGIC ---
-    // Listen for any updates to the user's orders (e.g. status changes)
-    let subscription: any;
+    // --- SUPABASE REALTIME CONFIG ---
+    let activeChannel: any = null;
 
     const setupRealtime = async () => {
       const {
@@ -66,8 +65,14 @@ export default function OrdersScreen() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      subscription = supabase
-        .channel("custom-all-channel")
+      // Use a unique channel name per user to completely prevent cross-talk collisions
+      const channelName = `user-orders-${user.id}`;
+
+      // Remove it first if a stale instance accidentally lingered in memory
+      supabase.removeChannel(supabase.channel(channelName));
+
+      activeChannel = supabase
+        .channel(channelName)
         .on(
           "postgres_changes",
           {
@@ -94,7 +99,9 @@ export default function OrdersScreen() {
     setupRealtime();
 
     return () => {
-      if (subscription) supabase.removeChannel(subscription);
+      if (activeChannel) {
+        supabase.removeChannel(activeChannel);
+      }
     };
   }, []);
 
