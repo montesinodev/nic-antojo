@@ -7,21 +7,12 @@
     "orientation": "portrait",
     "icon": "./assets/images/nicantojo-icon.png",
     "userInterfaceStyle": "automatic",
-    "router": {
-      "origin": "src/app"
-    },
     "ios": {
       "bundleIdentifier": "com.nicantojo.app",
       "icon": "./assets/expo.icon"
     },
     "android": {
       "package": "com.nicantojo.app",
-      "adaptiveIcon": {
-        "backgroundColor": "#E63946",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
       "predictiveBackGestureEnabled": false,
       "intentFilters": [
         {
@@ -32,12 +23,14 @@
               "scheme": "nicantojo"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
-      ]
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAS3gZFkeUk4fSKK9RZX0m8s58bvpJjI7Q"
+        }
+      }
     },
     "web": {
       "output": "static",
@@ -55,7 +48,15 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": false
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
