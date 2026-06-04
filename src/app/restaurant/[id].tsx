@@ -35,12 +35,27 @@ export default function RestaurantDetail() {
 
   useEffect(() => {
     async function loadData() {
-      const { data } = await supabase
-        .from("restaurants")
-        .select("*, menu_items(*)")
-        .eq("id", id)
-        .single();
-      setRestaurant(data);
+      // Fire both queries simultaneously for maximum speed
+      const [restaurantRes, menuRes] = await Promise.all([
+        supabase.from("restaurants").select("*").eq("id", id).single(),
+        supabase.from("menu_items").select("*").eq("restaurant_id", id),
+      ]);
+
+      if (restaurantRes.error) {
+        console.error("Error fetching restaurant:", restaurantRes.error);
+      }
+      if (menuRes.error) {
+        console.error("Error fetching menu:", menuRes.error);
+      }
+
+      // Manually stitch the data together exactly how the UI expects it
+      if (restaurantRes.data) {
+        setRestaurant({
+          ...restaurantRes.data,
+          menu_items: menuRes.data || [], // Inject the menu items array
+        });
+      }
+
       setLoading(false);
     }
     loadData();
@@ -56,7 +71,10 @@ export default function RestaurantDetail() {
   return (
     <View className="flex-1 bg-[#FFFBF5]">
       <ScrollView className="flex-1">
-        <Image source={{ uri: restaurant?.logo_url }} className="w-full h-64" />
+        <Image
+          source={{ uri: restaurant?.image_url }}
+          className="w-full h-64"
+        />
 
         <View className="p-6 -mt-10 bg-[#FFFBF5] rounded-t-3xl">
           <Text className="text-3xl font-extrabold text-gray-800">
@@ -69,7 +87,7 @@ export default function RestaurantDetail() {
           <View className="flex-row items-center mt-4">
             <View className="bg-red-100 px-3 py-1 rounded-lg">
               <Text className="text-red-700 font-bold">
-                {restaurant?.category}
+                {restaurant?.categories}
               </Text>
             </View>
           </View>

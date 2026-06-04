@@ -1,6 +1,6 @@
-import { Session, User } from '@supabase/supabase-js';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { Session, User } from "@supabase/supabase-js";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
 
 type AuthContextType = {
   session: Session | null;
@@ -28,14 +28,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }, 1500);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user || null);
-        // isLoading stays false after initial load
-        // Navigation is handled by RootNavigation in _layout.tsx
-      }
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user || null);
+      // isLoading stays false after initial load
+      // Navigation is handled by RootNavigation in _layout.tsx
+    });
 
     return () => subscription.unsubscribe();
   }, []);

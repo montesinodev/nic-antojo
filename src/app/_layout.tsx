@@ -54,6 +54,13 @@ function RootNavigation() {
 }
 
 export default function RootLayout() {
+  const segments = useSegments();
+
+  // --- DEBUGGER SNIPPET ---
+  useEffect(() => {
+    console.log("Current Navigation Segments:", segments);
+  }, [segments]);
+  // -------------------------
   return (
     <AuthProvider>
       <RootNavigation />

@@ -5,7 +5,7 @@
     "scheme": "nicantojo",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/nicantojo-icon.png",
     "userInterfaceStyle": "automatic",
     "router": {
       "origin": "src/app"
@@ -32,7 +32,10 @@
               "scheme": "nicantojo"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -57,6 +60,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6e59d45c-c4a2-4c64-a955-da17cb2454fb"
+      }
     }
   }
 }

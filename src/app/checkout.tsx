@@ -16,22 +16,27 @@ import MapView from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 import { useCartStore } from "../store/useCartStore";
+import { useLocationStore } from "../store/useLocationStore"; // 1. Imported the store
 
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { items, clearCart } = useCartStore();
 
-  const [address, setAddress] = useState("");
+  // 2. Extract the exact variables your Zustand store actually provides
+  const { address: storeAddress, coordinates } = useLocationStore();
+
+  // Initialize the text input with the address from the store so the user doesn't have to re-type it
+  const [address, setAddress] = useState(storeAddress || "");
   const [loading, setLoading] = useState(false);
 
-  // Estado para capturar las coordenadas exactas del mapa
+  // 3. Initialize the map using the coordinates from the store
   const [selectedLocation, setSelectedLocation] = useState({
-    latitude: 12.1328, // Centro de Managua por defecto
-    longitude: -86.2504,
+    latitude: coordinates?.latitude || 12.1328,
+    longitude: coordinates?.longitude || -86.2504,
   });
 
-  // Cálculos de precios
+  // Price calculations
   const cartSubtotal = items.reduce(
     (sum: number, item: any) => sum + item.price_cordobas * item.quantity,
     0,
@@ -69,38 +74,23 @@ export default function CheckoutScreen() {
     setLoading(true);
 
     try {
-      const restaurantId = items[0].restaurant_id;
+      const TEST_RESTAURANT_ID = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
 
-      // Insertar orden con las coordenadas reales capturadas del mapa
-      const { data: orderData, error: orderError } = await supabase
-        .from("orders")
-        .insert([
-          {
-            delivery_address: address,
-            total: finalTotal,
-            restaurant_id: restaurantId,
-            customer_id: user.id,
-            lat: selectedLocation.latitude,
-            lng: selectedLocation.longitude,
+      const { error: orderError } = await supabase.from("orders").insert([
+        {
+          customer_id: user.id,
+          restaurant_id: TEST_RESTAURANT_ID,
+          total_amount: finalTotal,
+          delivery_address: address,
+          delivery_coords: {
+            latitude: selectedLocation.latitude,
+            longitude: selectedLocation.longitude,
           },
-        ])
-        .select()
-        .single();
+          order_items: items,
+        },
+      ]);
 
       if (orderError) throw orderError;
-
-      const orderItemsToInsert = items.map((item: any) => ({
-        order_id: orderData.id,
-        menu_item_id: item.id,
-        quantity: item.quantity,
-        unit_price: item.price_cordobas,
-      }));
-
-      const { error: itemsError } = await supabase
-        .from("order_items")
-        .insert(orderItemsToInsert);
-
-      if (itemsError) throw itemsError;
 
       Alert.alert("¡Pedido Confirmado!", "Tu comida ya se está preparando.", [
         {
@@ -116,7 +106,7 @@ export default function CheckoutScreen() {
         "Error",
         "Hubo un problema al procesar tu orden: " + error.message,
       );
-      console.log("Supabase Error:", error);
+      console.error("Supabase Error:", error);
     } finally {
       setLoading(false);
     }
@@ -140,7 +130,7 @@ export default function CheckoutScreen() {
           </Text>
         </View>
 
-        {/* --- SECCIÓN DEL MAPA --- */}
+        {/* --- MAP SECTION --- */}
         <Text className="font-bold text-gray-800 text-lg mb-3 ml-1">
           Ubicación exacta
         </Text>
@@ -149,20 +139,19 @@ export default function CheckoutScreen() {
             <MapView
               style={{ flex: 1 }}
               initialRegion={{
-                latitude: 12.1328,
-                longitude: -86.2504,
-                latitudeDelta: 0.05,
-                longitudeDelta: 0.05,
+                latitude: selectedLocation.latitude,
+                longitude: selectedLocation.longitude,
+                latitudeDelta: 0.005, // Zoomed in closer so they can confirm the exact street
+                longitudeDelta: 0.005,
               }}
               onRegionChangeComplete={(region) => {
-                // Cada vez que el mapa se detiene, actualizamos las coordenadas
                 setSelectedLocation({
                   latitude: region.latitude,
                   longitude: region.longitude,
                 });
               }}
             />
-            {/* El pin falso que se queda siempre en el centro */}
+            {/* Fake Pin */}
             <View className="absolute top-1/2 left-1/2 -mt-8 -ml-4 pointer-events-none items-center shadow-lg">
               <View className="bg-red-700 w-8 h-8 rounded-full items-center justify-center">
                 <Ionicons name="restaurant" size={16} color="white" />
@@ -173,12 +162,12 @@ export default function CheckoutScreen() {
           </View>
           <View className="p-4 bg-red-50">
             <Text className="text-red-800 text-xs text-center font-medium">
-              Mueve el mapa para ubicar el pin exactamente en tu casa o trabajo.
+              Mueve el mapa si necesitas ajustar el pin para mayor precisión.
             </Text>
           </View>
         </View>
 
-        {/* --- SECCIÓN DE DIRECCIÓN TEXTUAL --- */}
+        {/* --- ADDRESS TEXT SECTION --- */}
         <Text className="font-bold text-gray-800 text-lg mb-3 ml-1">
           Referencias de la dirección
         </Text>
@@ -194,7 +183,7 @@ export default function CheckoutScreen() {
           />
         </View>
 
-        {/* --- RESUMEN DE PAGO --- */}
+        {/* --- SUMMARY SECTION --- */}
         <Text className="font-bold text-gray-800 text-lg mb-3 ml-1">
           Resumen
         </Text>
@@ -217,7 +206,7 @@ export default function CheckoutScreen() {
         </View>
       </ScrollView>
 
-      {/* --- BOTÓN FLOTANTE --- */}
+      {/* --- FLOATING BUTTON --- */}
       <View
         className="bg-white w-full px-6 pt-4 border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]"
         style={{ paddingBottom: insets.bottom > 0 ? insets.bottom + 16 : 24 }}

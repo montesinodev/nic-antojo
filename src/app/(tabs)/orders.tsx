@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -13,152 +13,252 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 
 export default function OrdersScreen() {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
-  useEffect(() => {
-    fetchOrders();
-  }, []);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   const fetchOrders = async () => {
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
       if (!user) {
-        router.replace("/(auth)/login");
+        setLoading(false);
         return;
       }
+      setUser(user);
 
-      // Traemos las órdenes del usuario, ordenadas por la más reciente
+      // Fetch orders and join with the restaurant table to get the name
       const { data, error } = await supabase
         .from("orders")
-        .select("*")
+        .select(
+          `
+          *,
+          restaurant:restaurants(name)
+        `,
+        )
         .eq("customer_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       setOrders(data || []);
     } catch (error) {
-      console.log("Error al obtener órdenes:", error);
+      console.error("Error fetching orders:", error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // Función para darle color a la etiqueta según el estado
-  const getStatusBadge = (status: string) => {
-    switch (status?.toLowerCase()) {
+  useEffect(() => {
+    fetchOrders();
+
+    // --- SUPABASE REALTIME MAGIC ---
+    // Listen for any updates to the user's orders (e.g. status changes)
+    let subscription: any;
+
+    const setupRealtime = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      subscription = supabase
+        .channel("custom-all-channel")
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "orders",
+            filter: `customer_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log("Order updated in realtime!", payload);
+            // Update the specific order in our local state instantly
+            setOrders((currentOrders) =>
+              currentOrders.map((order) =>
+                order.id === payload.new.id
+                  ? { ...order, ...payload.new }
+                  : order,
+              ),
+            );
+          },
+        )
+        .subscribe();
+    };
+
+    setupRealtime();
+
+    return () => {
+      if (subscription) supabase.removeChannel(subscription);
+    };
+  }, []);
+
+  // Helper function to translate and style statuses
+  const getStatusDisplay = (status: string) => {
+    switch (status) {
       case "pending":
-        return (
-          <View className="bg-yellow-100 px-3 py-1 rounded-full">
-            <Text className="text-yellow-700 font-bold text-xs">Pendiente</Text>
-          </View>
-        );
+        return {
+          text: "Pendiente",
+          color: "bg-orange-100 text-orange-800",
+          icon: "time-outline",
+        };
       case "preparing":
-        return (
-          <View className="bg-blue-100 px-3 py-1 rounded-full">
-            <Text className="text-blue-700 font-bold text-xs">Preparando</Text>
-          </View>
-        );
+        return {
+          text: "Preparando",
+          color: "bg-yellow-100 text-yellow-800",
+          icon: "restaurant-outline",
+        };
+      case "ready":
+        return {
+          text: "Listo para enviar",
+          color: "bg-blue-100 text-blue-800",
+          icon: "checkmark-circle-outline",
+        };
+      case "on_the_way":
+        return {
+          text: "En camino",
+          color: "bg-purple-100 text-purple-800",
+          icon: "bicycle-outline",
+        };
       case "delivered":
-        return (
-          <View className="bg-green-100 px-3 py-1 rounded-full">
-            <Text className="text-green-700 font-bold text-xs">Entregado</Text>
-          </View>
-        );
+        return {
+          text: "Entregado",
+          color: "bg-green-100 text-green-800",
+          icon: "home-outline",
+        };
+      case "cancelled":
+        return {
+          text: "Cancelado",
+          color: "bg-red-100 text-red-800",
+          icon: "close-circle-outline",
+        };
       default:
-        return (
-          <View className="bg-gray-100 px-3 py-1 rounded-full">
-            <Text className="text-gray-700 font-bold text-xs">{status}</Text>
-          </View>
-        );
+        return {
+          text: status,
+          color: "bg-gray-100 text-gray-800",
+          icon: "alert-circle-outline",
+        };
     }
   };
 
+  // Format date to something readable
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("es-NI", {
-      day: "numeric",
       month: "short",
-      year: "numeric",
+      day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     });
   };
 
-  const renderOrder = ({ item }: { item: any }) => (
-    <TouchableOpacity className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-4">
-      <View className="flex-row justify-between items-center mb-3">
-        <Text className="font-bold text-gray-500 text-sm">
-          Orden #{item.id.substring(0, 8).toUpperCase()}
-        </Text>
-        {getStatusBadge(item.status)}
+  if (loading) {
+    return (
+      <View className="flex-1 justify-center items-center bg-[#FFFBF5]">
+        <ActivityIndicator size="large" color="#E63946" />
       </View>
+    );
+  }
 
-      <View className="flex-row items-center mb-3">
-        <Ionicons name="calendar-outline" size={16} color="#9CA3AF" />
-        <Text className="text-gray-600 ml-2">
-          {formatDate(item.created_at)}
+  if (!user) {
+    return (
+      <View className="flex-1 justify-center items-center bg-[#FFFBF5] px-6">
+        <Ionicons name="receipt-outline" size={80} color="#ccc" />
+        <Text className="text-xl font-bold text-gray-800 mt-4 mb-2 text-center">
+          Inicia sesión para ver tus pedidos
         </Text>
+        <TouchableOpacity
+          onPress={() => router.push("/(auth)/login")}
+          className="bg-[#E63946] px-8 py-3 rounded-xl mt-4 shadow-sm"
+        >
+          <Text className="text-white font-bold text-lg">Iniciar Sesión</Text>
+        </TouchableOpacity>
       </View>
-
-      <View className="flex-row items-center mb-3">
-        <Ionicons name="location-outline" size={16} color="#9CA3AF" />
-        <Text className="text-gray-600 ml-2" numberOfLines={1}>
-          {item.delivery_address}
-        </Text>
-      </View>
-
-      <View className="h-[1px] bg-gray-100 my-2" />
-
-      <View className="flex-row justify-between items-center mt-2">
-        <Text className="text-gray-500">Total pagado</Text>
-        <Text className="font-black text-[#E63946] text-lg">
-          C$ {item.total}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
+    );
+  }
 
   return (
     <View className="flex-1 bg-[#FFFBF5]" style={{ paddingTop: insets.top }}>
-      <View className="px-6 py-4 mb-2">
+      <View className="px-6 pt-4 pb-2">
         <Text className="text-3xl font-black text-gray-800">Mis Pedidos</Text>
-        <Text className="text-gray-500 text-base mt-1">
-          Revisa el estado de tus antojos
-        </Text>
       </View>
 
-      {loading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#E63946" />
-        </View>
-      ) : orders.length === 0 ? (
-        <View className="flex-1 justify-center items-center px-6">
-          <Ionicons name="receipt-outline" size={64} color="#D1D5DB" />
-          <Text className="text-gray-500 text-lg mt-4 text-center">
-            Aún no has hecho ningún pedido.
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={orders}
-          keyExtractor={(item) => item.id}
-          renderItem={renderOrder}
-          contentContainerStyle={{ padding: 20 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={loading}
-              onRefresh={fetchOrders}
-              tintColor="#E63946"
-            />
-          }
-        />
-      )}
+      <FlatList
+        data={orders}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              fetchOrders();
+            }}
+          />
+        }
+        ListEmptyComponent={() => (
+          <View className="items-center justify-center py-20">
+            <Ionicons name="fast-food-outline" size={60} color="#ccc" />
+            <Text className="text-gray-500 text-lg mt-4 text-center">
+              Aún no tienes pedidos.{"\n"}¡Anímate a probar algo rico!
+            </Text>
+          </View>
+        )}
+        renderItem={({ item }) => {
+          const statusUI = getStatusDisplay(item.status);
+          const itemCount = item.order_items?.length || 0;
+
+          return (
+            <View className="bg-white p-5 rounded-3xl mb-4 shadow-sm border border-gray-100">
+              {/* Header: Restaurant & Total */}
+              <View className="flex-row justify-between items-start mb-3">
+                <View className="flex-1 pr-4">
+                  <Text
+                    className="font-bold text-lg text-gray-800"
+                    numberOfLines={1}
+                  >
+                    {item.restaurant?.name || "Restaurante"}
+                  </Text>
+                  <Text className="text-gray-400 text-sm mt-1">
+                    {formatDate(item.created_at)} • {itemCount}{" "}
+                    {itemCount === 1 ? "producto" : "productos"}
+                  </Text>
+                </View>
+                <Text className="font-black text-[#E63946] text-lg">
+                  C$ {item.total_amount}
+                </Text>
+              </View>
+
+              {/* Status Badge */}
+              <View className="flex-row items-center mt-2">
+                <View
+                  className={`px-3 py-1.5 rounded-lg flex-row items-center ${statusUI.color}`}
+                >
+                  <Ionicons
+                    name={statusUI.icon as any}
+                    size={16}
+                    color="inherit"
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text className="font-bold ml-1">{statusUI.text}</Text>
+                </View>
+              </View>
+
+              {/* Order ID Footer */}
+              <View className="mt-4 pt-3 border-t border-gray-100">
+                <Text className="text-gray-300 text-xs font-mono uppercase">
+                  ID: {item.id.split("-")[0]}
+                </Text>
+              </View>
+            </View>
+          );
+        }}
+      />
     </View>
   );
 }
