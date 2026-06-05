@@ -26,6 +26,7 @@ type Restaurant = {
 };
 
 export default function HomeScreen() {
+  // 1. ALL HOOKS DECLARED AT THE TOP LEVEL
   const router = useRouter();
   const { user } = useAuth();
   const { address } = useLocationStore();
@@ -34,6 +35,51 @@ export default function HomeScreen() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Gatekeeper state to prevent UI from rendering until phone is verified
+  const [isCheckingProfile, setIsCheckingProfile] = useState(true);
+
+  // 2. GATEKEEPER EFFECT
+  useEffect(() => {
+    const verifyProfile = async () => {
+      if (!user) {
+        setIsCheckingProfile(false);
+        return;
+      }
+
+      try {
+        // Use maybeSingle() instead of single() to avoid PGRST116 errors on new accounts
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("phone")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        // If no row exists yet, or phone is missing/placeholder -> Redirect
+        if (
+          !profile ||
+          !profile.phone ||
+          profile.phone.trim() === "" ||
+          profile.phone === "Sin teléfono" ||
+          profile.phone === "No registrado"
+        ) {
+          router.replace("/complete-profile");
+        } else {
+          // Phone is valid, unlock the screen
+          setIsCheckingProfile(false);
+        }
+      } catch (err) {
+        console.error("Profile verification error:", err);
+        // Default to showing the app if there's a network error so it doesn't freeze
+        setIsCheckingProfile(false);
+      }
+    };
+
+    verifyProfile();
+  }, [user]);
+
+  // 3. FETCH DATA EFFECT
   useEffect(() => {
     fetchRestaurants();
   }, []);
@@ -74,6 +120,16 @@ export default function HomeScreen() {
     );
   };
 
+  // 4. CONDITIONAL RETURN (Must be placed AFTER all hooks)
+  if (isCheckingProfile) {
+    return (
+      <View className="flex-1 justify-center items-center bg-[#FFFBF5]">
+        <ActivityIndicator size="large" color="#E63946" />
+      </View>
+    );
+  }
+
+  // 5. MAIN UI RENDER
   return (
     <SafeAreaView
       className="flex-1 bg-[#FFFBF5]"
