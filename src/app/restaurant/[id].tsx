@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   ScrollView,
   Text,
@@ -22,7 +23,7 @@ export default function RestaurantDetail() {
   // Obtenemos los márgenes seguros del dispositivo (notch arriba, barra de navegación abajo)
   const insets = useSafeAreaInsets();
 
-  const { items, addItem } = useCartStore();
+  const { items, addItem, clearCart, restaurantId } = useCartStore();
 
   const cartItemsCount = items.reduce(
     (sum: number, item: any) => sum + item.quantity,
@@ -60,6 +61,31 @@ export default function RestaurantDetail() {
     }
     loadData();
   }, [id]);
+
+  const handleAddToCart = (item: any) => {
+    // 1. Check for conflicts
+    if (restaurantId && restaurantId !== item.restaurant_id) {
+      Alert.alert(
+        "¿Reemplazar carrito?",
+        "Tu carrito actual tiene productos de otro restaurante. ¿Deseas vaciarlo y agregar este producto?",
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Reemplazar",
+            style: "destructive",
+            onPress: () => {
+              clearCart();
+              addItem(item);
+            },
+          },
+        ],
+      );
+      return; // Stop execution to prevent adding
+    }
+
+    // 2. Add item normally
+    addItem(item);
+  };
 
   if (loading)
     return (
@@ -115,7 +141,7 @@ export default function RestaurantDetail() {
                 </View>
 
                 <TouchableOpacity
-                  onPress={() => addItem(item)}
+                  onPress={() => handleAddToCart(item)}
                   className="bg-[#E63946] w-10 h-10 rounded-full items-center justify-center ml-2 shadow-sm"
                 >
                   <Ionicons name="add" size={24} color="white" />

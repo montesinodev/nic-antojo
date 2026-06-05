@@ -16,27 +16,25 @@ import MapView from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 import { useCartStore } from "../store/useCartStore";
-import { useLocationStore } from "../store/useLocationStore"; // 1. Imported the store
+import { useLocationStore } from "../store/useLocationStore";
 
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { items, clearCart } = useCartStore();
 
-  // 2. Extract the exact variables your Zustand store actually provides
+  // 1. EXTRACT restaurantId FROM STORE
+  const { items, clearCart, restaurantId } = useCartStore();
+
   const { address: storeAddress, coordinates } = useLocationStore();
 
-  // Initialize the text input with the address from the store so the user doesn't have to re-type it
   const [address, setAddress] = useState(storeAddress || "");
   const [loading, setLoading] = useState(false);
 
-  // 3. Initialize the map using the coordinates from the store
   const [selectedLocation, setSelectedLocation] = useState({
     latitude: coordinates?.latitude || 12.1328,
     longitude: coordinates?.longitude || -86.2504,
   });
 
-  // Price calculations
   const cartSubtotal = items.reduce(
     (sum: number, item: any) => sum + item.price_cordobas * item.quantity,
     0,
@@ -71,15 +69,23 @@ export default function CheckoutScreen() {
       return;
     }
 
+    // 2. SAFETY GUARD: Ensure we have a valid restaurant ID before sending the order
+    if (!restaurantId) {
+      Alert.alert(
+        "Error en el carrito",
+        "No se pudo identificar el restaurante de tu pedido. Por favor, limpia tu carrito e intenta nuevamente.",
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const TEST_RESTAURANT_ID = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
-
+      // 3. WIRE THE DYNAMIC RESTAURANT ID
       const { error: orderError } = await supabase.from("orders").insert([
         {
           customer_id: user.id,
-          restaurant_id: TEST_RESTAURANT_ID,
+          restaurant_id: restaurantId, // Replaced TEST_RESTAURANT_ID with dynamic state
           total_amount: finalTotal,
           delivery_address: address,
           delivery_coords: {
@@ -141,7 +147,7 @@ export default function CheckoutScreen() {
               initialRegion={{
                 latitude: selectedLocation.latitude,
                 longitude: selectedLocation.longitude,
-                latitudeDelta: 0.005, // Zoomed in closer so they can confirm the exact street
+                latitudeDelta: 0.005,
                 longitudeDelta: 0.005,
               }}
               onRegionChangeComplete={(region) => {
