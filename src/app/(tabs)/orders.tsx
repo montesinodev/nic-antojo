@@ -218,7 +218,7 @@ export default function OrdersScreen() {
         )}
         renderItem={({ item }) => {
           const statusUI = getStatusDisplay(item.status);
-          const itemCount = item.order_items?.length || 0;
+          const itemCount = item.cart_snapshot?.length || 0;
 
           return (
             <View className="bg-white p-5 rounded-3xl mb-4 shadow-sm border border-gray-100">

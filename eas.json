@@ -1,5 +1,17 @@
 {
   "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ddnflmmvzdwycxkihtjd.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_RAsJOvxhKDfWJIoNPk21nw_pIVjmn0r",
+        "EXPO_PUBLIC_GOOGLE_PLACES_API_KEY": "AIzaSyAS3gZFkeUk4fSKK9RZX0m8s58bvpJjI7Q"
+      }
+    },
     "preview": {
       "android": {
         "buildType": "apk"

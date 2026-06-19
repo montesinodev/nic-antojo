@@ -32,7 +32,7 @@ export default function LoginScreen() {
       return acc;
     }, {} as Record<string, string>);
   };
-
+  console.log('Redirect URI:', redirectUri);
   async function signInWithGoogle() {
     setLoading(true);
     

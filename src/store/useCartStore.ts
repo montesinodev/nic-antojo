@@ -4,10 +4,9 @@ import { create } from "zustand";
 export type CartItem = {
   id: string;
   name: string;
-  price: number;
+  price_cordobas: number;   // ← matches DB column
   quantity: number;
   restaurant_id: string;
-  // ... any other properties you currently have
 };
 
 interface CartState {

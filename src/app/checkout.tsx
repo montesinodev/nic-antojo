@@ -15,16 +15,14 @@ import {
 import MapView from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
-import { useCartStore } from "../store/useCartStore";
+import { useCartStore, CartItem } from "../store/useCartStore";
 import { useLocationStore } from "../store/useLocationStore";
 
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // 1. EXTRACT restaurantId FROM STORE
   const { items, clearCart, restaurantId } = useCartStore();
-
   const { address: storeAddress, coordinates } = useLocationStore();
 
   const [address, setAddress] = useState(storeAddress || "");
@@ -35,9 +33,9 @@ export default function CheckoutScreen() {
     longitude: coordinates?.longitude || -86.2504,
   });
 
+  // Display-only — server recalculates from DB prices, this is just for the UI
   const cartSubtotal = items.reduce(
-    (sum: number, item: any) => sum + item.price_cordobas * item.quantity,
-    0,
+    (sum, item: CartItem) => sum + item.price_cordobas * item.quantity, 0
   );
   const deliveryFee = 50;
   const finalTotal = cartSubtotal + deliveryFee;
@@ -69,7 +67,6 @@ export default function CheckoutScreen() {
       return;
     }
 
-    // 2. SAFETY GUARD: Ensure we have a valid restaurant ID before sending the order
     if (!restaurantId) {
       Alert.alert(
         "Error en el carrito",
@@ -81,29 +78,33 @@ export default function CheckoutScreen() {
     setLoading(true);
 
     try {
-      // 3. WIRE THE DYNAMIC RESTAURANT ID
-      const { error: orderError } = await supabase.from("orders").insert([
-        {
-          customer_id: user.id,
-          restaurant_id: restaurantId, // Replaced TEST_RESTAURANT_ID with dynamic state
-          total_amount: finalTotal,
+      // Map cart items to the format place_order_atomic expects
+      const orderItems = items.map((item: any) => ({
+        menu_item_id: item.id,
+        quantity: item.quantity,
+      }));
+
+      const { data, error } = await supabase.functions.invoke("place-order", {
+        body: {
+          restaurant_id: restaurantId,
           delivery_address: address,
           delivery_coords: {
             latitude: selectedLocation.latitude,
             longitude: selectedLocation.longitude,
           },
-          order_items: items,
+          items: orderItems,
         },
-      ]);
+      });
 
-      if (orderError) throw orderError;
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       Alert.alert("¡Pedido Confirmado!", "Tu comida ya se está preparando.", [
         {
           text: "Excelente",
           onPress: () => {
             clearCart();
-            router.replace("/");
+            router.replace("/(tabs)/orders");
           },
         },
       ]);
@@ -112,7 +113,7 @@ export default function CheckoutScreen() {
         "Error",
         "Hubo un problema al procesar tu orden: " + error.message,
       );
-      console.error("Supabase Error:", error);
+      console.error("place-order error:", error);
     } finally {
       setLoading(false);
     }
