@@ -33,6 +33,7 @@ export default function RegisterScreen() {
       email, 
       password,
       options: { 
+        emailRedirectTo: 'nicantojo://login',
         data: { 
           full_name: name,
           phone: phone,

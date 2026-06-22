@@ -110,12 +110,28 @@ export default function RestaurantDetail() {
             {restaurant?.address}
           </Text>
 
-          <View className="flex-row items-center mt-4">
+          <View className="flex-row items-center mt-4 gap-2 flex-wrap">
             <View className="bg-red-100 px-3 py-1 rounded-lg">
               <Text className="text-red-700 font-bold">
                 {restaurant?.categories}
               </Text>
             </View>
+            {restaurant?.rating && (
+              <View className="flex-row items-center bg-yellow-50 px-3 py-1 rounded-lg border border-yellow-100">
+                <Ionicons name="star" size={14} color="#FBBF24" />
+                <Text className="text-yellow-700 font-bold ml-1">
+                  {restaurant.rating.toFixed(1)}
+                </Text>
+              </View>
+            )}
+            {restaurant?.delivery_time && (
+              <View className="flex-row items-center bg-gray-100 px-3 py-1 rounded-lg">
+                <Ionicons name="time-outline" size={14} color="#6B7280" />
+                <Text className="text-gray-600 font-medium ml-1">
+                  {restaurant.delivery_time}
+                </Text>
+              </View>
+            )}
           </View>
 
           <Text className="text-xl font-bold mt-8 mb-4">Menú disponible</Text>

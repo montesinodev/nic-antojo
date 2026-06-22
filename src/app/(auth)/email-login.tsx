@@ -2,14 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
@@ -87,8 +87,24 @@ export default function EmailLoginScreen() {
             selectionColor="#fca5a5"
           />
           
-          {/* Forgot Password Placeholder */}
-          <TouchableOpacity className="mt-4 self-end">
+          {/* Forgot Password */}
+          <TouchableOpacity
+            className="mt-4 self-end"
+            onPress={async () => {
+              if (!email) {
+                Alert.alert('Ingresa tu correo', 'Escribe tu correo arriba para restablecer tu contraseña.');
+                return;
+              }
+              const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: 'nicantojo://login',
+              });
+              if (error) {
+                Alert.alert('Error', error.message);
+              } else {
+                Alert.alert('Correo enviado', 'Revisa tu bandeja de entrada para restablecer tu contraseña.');
+              }
+            }}
+          >
             <Text className="text-orange-400 font-medium">
               ¿Olvidaste tu contraseña?
             </Text>

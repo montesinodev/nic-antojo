@@ -21,8 +21,12 @@ type Restaurant = {
   name: string;
   address: string;
   category: string;
+  categories: string;
   logo_url: string;
+  image_url: string;
   is_open: boolean;
+  rating: number | null;
+  delivery_time: string | null;
 };
 
 export default function HomeScreen() {
@@ -34,6 +38,8 @@ export default function HomeScreen() {
 
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Gatekeeper state to prevent UI from rendering until phone is verified
   const [isCheckingProfile, setIsCheckingProfile] = useState(true);
@@ -120,6 +126,39 @@ export default function HomeScreen() {
     );
   };
 
+  // Derive unique categories from all restaurants
+  const allCategories = Array.from(
+    new Set(
+      restaurants
+        .flatMap((r) => (r.categories ? r.categories.split(',').map((c) => c.trim()) : [r.category].filter(Boolean)))
+    )
+  ).filter(Boolean);
+
+  // Filter restaurants by search + category
+  const filteredRestaurants = restaurants.filter((r) => {
+    const matchesSearch = searchQuery.trim() === '' ||
+      r.name.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const restaurantCategories = r.categories
+      ? r.categories.split(',').map((c) => c.trim())
+      : [r.category];
+
+    const matchesCategory = !selectedCategory ||
+      restaurantCategories.some((c) => c.toLowerCase() === selectedCategory.toLowerCase());
+
+    return matchesSearch && matchesCategory;
+  });
+
+  // Category emoji map
+  const categoryEmoji: Record<string, string> = {
+    fritanga: '🌮', asados: '🥩', pizza: '🍕', postres: '🍰',
+    bebidas: '🥤', mariscos: '🦐', pollo: '🍗', hamburguesas: '🍔',
+    sushi: '🍱', tacos: '🌮', pasta: '🍝', ensaladas: '🥗',
+  };
+
+  const getEmoji = (cat: string) =>
+    categoryEmoji[cat.toLowerCase()] || '🍽️';
+
   // 4. CONDITIONAL RETURN (Must be placed AFTER all hooks)
   if (isCheckingProfile) {
     return (
@@ -178,6 +217,8 @@ export default function HomeScreen() {
               placeholder="Buscar restaurantes, asados, fritanga..."
               className="flex-1 ml-3 text-base text-gray-700 font-medium"
               placeholderTextColor="#9CA3AF"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
             />
           </View>
         </View>
@@ -188,52 +229,71 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 24, gap: 16 }}
           >
-            {["Fritanga", "Asados", "Pizza", "Postres", "Bebidas"].map(
-              (category, index) => (
-                <TouchableOpacity key={index} className="items-center">
-                  <View className="w-16 h-16 bg-white rounded-2xl items-center justify-center shadow-sm border border-gray-100 mb-2">
-                    <Text className="text-2xl">
-                      {index === 0
-                        ? "🌮"
-                        : index === 1
-                          ? "🥩"
-                          : index === 2
-                            ? "🍕"
-                            : index === 3
-                              ? "🍰"
-                              : "🥤"}
-                    </Text>
-                  </View>
-                  <Text className="text-gray-700 font-medium text-sm">
-                    {category}
-                  </Text>
-                </TouchableOpacity>
-              ),
-            )}
+            {/* All button */}
+            <TouchableOpacity
+              className="items-center"
+              onPress={() => setSelectedCategory(null)}
+            >
+              <View className={`w-16 h-16 rounded-2xl items-center justify-center shadow-sm border mb-2 ${
+                selectedCategory === null
+                  ? 'bg-[#E63946] border-[#E63946]'
+                  : 'bg-white border-gray-100'
+              }`}>
+                <Text className="text-2xl">🍽️</Text>
+              </View>
+              <Text className={`font-medium text-sm ${selectedCategory === null ? 'text-[#E63946]' : 'text-gray-700'}`}>
+                Todos
+              </Text>
+            </TouchableOpacity>
+
+            {allCategories.map((category) => (
+              <TouchableOpacity
+                key={category}
+                className="items-center"
+                onPress={() => setSelectedCategory(
+                  selectedCategory === category ? null : category
+                )}
+              >
+                <View className={`w-16 h-16 rounded-2xl items-center justify-center shadow-sm border mb-2 ${
+                  selectedCategory === category
+                    ? 'bg-[#E63946] border-[#E63946]'
+                    : 'bg-white border-gray-100'
+                }`}>
+                  <Text className="text-2xl">{getEmoji(category)}</Text>
+                </View>
+                <Text className={`font-medium text-sm ${
+                  selectedCategory === category ? 'text-[#E63946]' : 'text-gray-700'
+                }`}>
+                  {category}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
         </View>
 
         <View className="px-6 pb-12">
           <Text className="text-xl font-bold text-gray-800 mb-4">
-            Recomendados para ti
+            {selectedCategory ? selectedCategory : searchQuery ? 'Resultados' : 'Recomendados para ti'}
           </Text>
 
           {loading ? (
             <ActivityIndicator size="large" color="#E63946" className="mt-4" />
-          ) : restaurants.length === 0 ? (
+          ) : filteredRestaurants.length === 0 ? (
             <Text className="text-gray-500 text-center mt-4">
-              No hay restaurantes disponibles.
+              {searchQuery || selectedCategory
+                ? 'No hay restaurantes con ese filtro.'
+                : 'No hay restaurantes disponibles.'}
             </Text>
           ) : (
             <View className="gap-y-4">
-              {restaurants.map((restaurant) => (
+              {filteredRestaurants.map((restaurant) => (
                 <TouchableOpacity
                   key={restaurant.id}
                   className="bg-white rounded-3xl p-3 flex-row items-center shadow-sm border border-gray-100"
                   onPress={() => router.push(`/restaurant/${restaurant.id}`)}
                 >
                   <Image
-                    source={{ uri: restaurant.logo_url }}
+                    source={{ uri: restaurant.image_url || restaurant.logo_url }}
                     className="w-20 h-20 rounded-2xl bg-gray-200"
                     resizeMode="cover"
                   />
@@ -254,12 +314,20 @@ export default function HomeScreen() {
                           {restaurant.category}
                         </Text>
                       </View>
-                      <View className="flex-row items-center">
+                      <View className="flex-row items-center mr-3">
                         <Ionicons name="star" size={14} color="#FBBF24" />
                         <Text className="text-gray-600 text-xs font-bold ml-1">
-                          4.5
+                          {restaurant.rating ? restaurant.rating.toFixed(1) : '—'}
                         </Text>
                       </View>
+                      {restaurant.delivery_time && (
+                        <View className="flex-row items-center">
+                          <Ionicons name="time-outline" size={14} color="#9CA3AF" />
+                          <Text className="text-gray-500 text-xs ml-1">
+                            {restaurant.delivery_time}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </View>
                 </TouchableOpacity>
