@@ -134,6 +134,20 @@ export default function RestaurantDetail() {
             )}
           </View>
 
+          {!restaurant?.is_open && (
+            <View className="mt-6 bg-gray-100 border border-gray-200 rounded-2xl p-4 flex-row items-center gap-3">
+              <Ionicons name="close-circle" size={22} color="#6B7280" />
+              <View className="flex-1">
+                <Text className="font-bold text-gray-700">
+                  Restaurante cerrado
+                </Text>
+                <Text className="text-gray-500 text-sm mt-0.5">
+                  Este restaurante no está aceptando pedidos en este momento.
+                </Text>
+              </View>
+            </View>
+          )}
+
           <Text className="text-xl font-bold mt-8 mb-4">Menú disponible</Text>
           {restaurant?.menu_items && restaurant.menu_items.length > 0 ? (
             restaurant.menu_items.map((item: any) => (
@@ -158,7 +172,10 @@ export default function RestaurantDetail() {
 
                 <TouchableOpacity
                   onPress={() => handleAddToCart(item)}
-                  className="bg-[#E63946] w-10 h-10 rounded-full items-center justify-center ml-2 shadow-sm"
+                  disabled={!restaurant?.is_open}
+                  className={`w-10 h-10 rounded-full items-center justify-center ml-2 shadow-sm ${
+                    restaurant?.is_open ? "bg-[#E63946]" : "bg-gray-300"
+                  }`}
                 >
                   <Ionicons name="add" size={24} color="white" />
                 </TouchableOpacity>

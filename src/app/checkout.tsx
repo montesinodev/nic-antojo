@@ -15,7 +15,7 @@ import {
 import MapView from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
-import { useCartStore, CartItem } from "../store/useCartStore";
+import { CartItem, useCartStore } from "../store/useCartStore";
 import { useLocationStore } from "../store/useLocationStore";
 
 export default function CheckoutScreen() {
@@ -35,7 +35,8 @@ export default function CheckoutScreen() {
 
   // Display-only — server recalculates from DB prices, this is just for the UI
   const cartSubtotal = items.reduce(
-    (sum, item: CartItem) => sum + item.price_cordobas * item.quantity, 0
+    (sum, item: CartItem) => sum + item.price_cordobas * item.quantity,
+    0,
   );
   const deliveryFee = 50;
   const finalTotal = cartSubtotal + deliveryFee;
@@ -78,6 +79,22 @@ export default function CheckoutScreen() {
     setLoading(true);
 
     try {
+      // Verify restaurant is still open before submitting
+      const { data: restaurantCheck } = await supabase
+        .from("restaurants")
+        .select("is_open")
+        .eq("id", restaurantId)
+        .single();
+
+      if (!restaurantCheck?.is_open) {
+        Alert.alert(
+          "Restaurante cerrado",
+          "Este restaurante cerró mientras armabas tu pedido. Por favor intenta más tarde.",
+        );
+        setLoading(false);
+        return;
+      }
+
       // Map cart items to the format place_order_atomic expects
       const orderItems = items.map((item: any) => ({
         menu_item_id: item.id,
